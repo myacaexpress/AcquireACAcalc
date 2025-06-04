@@ -6,8 +6,8 @@ import FinancialInputsCard from '@/components/sections/FinancialInputsCard';
 import SummaryDisplay from '@/components/sections/SummaryDisplay';
 import ProjectionChart from '@/components/charts/ProjectionChart';
 import MonthlyBreakdownTable from '@/components/tables/MonthlyBreakdownTable';
-import AiRecommendationsCard from '@/components/sections/AiRecommendationsCard';
-import type { FinancialOptimizationInput } from '@/ai/flows/financial-optimization-recommendations';
+import AskJohnChat from '@/components/sections/AskJohnChat'; // Changed import
+// import type { FinancialOptimizationInput } from '@/ai/flows/financial-optimization-recommendations'; // No longer needed here
 
 export interface ProjectionMonthData {
   month: string;
@@ -48,7 +48,6 @@ export default function RevenueAscentPage() {
 
   const handleInputChange = (setter: React.Dispatch<React.SetStateAction<string | number>>) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    // Allow empty string for user to clear input, otherwise parse
     if (value === '') {
       setter('');
     } else {
@@ -181,27 +180,6 @@ export default function RevenueAscentPage() {
     return { totalRevenue, totalExpenses, totalProfit, breakEvenMonth, maxProfit, maxLoss };
   }, [projectionData]);
 
-  const aiFinancialInputs = useMemo<FinancialOptimizationInput | null>(() => {
-    if (isCalculating || !summaryMetrics) return null;
-    return {
-      leadCost: Number(leadCost) || 0,
-      recurringCommission: Number(recurringCommission) || 0,
-      newEnrollmentCost: Number(newEnrollmentCost) || 0,
-      leadsPurchasedPerMonth: Number(leadsPurchasedInput) || 0, // Simplified for AI
-      newToMarketplacePercentage: Number(newToMarketplacePercentage) || 0,
-      aorConversionsPerMonth: Number(aorConversionsInput) || 0, // Simplified for AI
-      financialProjection: {
-        totalRevenue: summaryMetrics.totalRevenue,
-        totalExpenses: summaryMetrics.totalExpenses,
-        totalProfit: summaryMetrics.totalProfit,
-        breakEvenMonth: summaryMetrics.breakEvenMonth,
-        maxProfit: summaryMetrics.maxProfit,
-        maxLoss: summaryMetrics.maxLoss,
-      },
-    };
-  }, [isCalculating, summaryMetrics, leadCost, recurringCommission, newEnrollmentCost, leadsPurchasedInput, newToMarketplacePercentage, aorConversionsInput]);
-
-
   return (
     <div className="min-h-screen bg-background p-4 sm:p-6 md:p-8">
       <div className="container mx-auto max-w-7xl">
@@ -243,7 +221,7 @@ export default function RevenueAscentPage() {
                 <SummaryDisplay summaryMetrics={summaryMetrics} />
               </CardContent>
             </Card>
-             <AiRecommendationsCard financialInputs={aiFinancialInputs} isCalculating={isCalculating} />
+            <AskJohnChat /> {/* Replaced AiRecommendationsCard */}
           </div>
         </div>
         
