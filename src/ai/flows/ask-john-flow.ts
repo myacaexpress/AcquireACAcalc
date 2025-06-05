@@ -11,6 +11,7 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
+// Schema for the flow's public input and the exported AskJohnInput type
 const AskJohnInputSchema = z.object({
   query: z.string().describe("The user's current question for John."),
   chatHistory: z.array(z.object({
@@ -19,6 +20,17 @@ const AskJohnInputSchema = z.object({
   })).optional().describe('The history of the conversation leading up to the current query.'),
 });
 export type AskJohnInput = z.infer<typeof AskJohnInputSchema>;
+
+// Internal schema for the prompt, including derived boolean flags for Handlebars
+const AskJohnPromptInputSchema = z.object({
+  query: z.string(),
+  chatHistory: z.array(z.object({
+    role: z.enum(['user', 'model']),
+    parts: z.array(z.object({ text: z.string() })),
+    isUser: z.boolean(),
+    isModel: z.boolean(),
+  })).optional(),
+});
 
 const AskJohnOutputSchema = z.object({
   answer: z.string().describe("John's answer to the query."),
@@ -37,7 +49,6 @@ const searchWebTool = ai.defineTool(
     console.log(`[AskJohnFlow] Tool: searchWeb called with query: "${searchQuery}"`);
     // In a real app, this would call a search engine API and process results.
     // For prototype, simulate some results based on query.
-    // The Google Doc now contains info on carrier bonuses, so web search for that might be less prioritized by the LLM.
     if (searchQuery.toLowerCase().includes('weather')) {
         return { results: `Simulated web search: The weather today is sunny.` };
     }
@@ -63,27 +74,20 @@ const searchGoogleDocTool = ai.defineTool(
         return { results: `Error: Could not fetch the document (status: ${response.status}).` };
       }
       const htmlContent = await response.text();
-      // Basic HTML to text conversion: remove tags and excessive whitespace
-      let textContent = htmlContent.replace(/<style[^>]*>.*<\/style>/gs, ''); // Remove style blocks
-      textContent = textContent.replace(/<[^>]*>/g, ' '); // Remove all HTML tags
-      textContent = textContent.replace(/\s+/g, ' ').trim(); // Normalize whitespace
+      let textContent = htmlContent.replace(/<style[^>]*>.*<\/style>/gs, ''); 
+      textContent = textContent.replace(/<[^>]*>/g, ' '); 
+      textContent = textContent.replace(/\s+/g, ' ').trim(); 
 
       const lowerSearchQuery = searchQuery.toLowerCase();
-      
-      // Attempt to find a "paragraph" containing the search query.
-      // Google Docs published HTML often wraps paragraphs in <p> tags, but after stripping,
-      // we might rely on sentence structure or look for text around the query.
-      // A simple approach: find the query and return a snippet around it.
       const queryIndex = textContent.toLowerCase().indexOf(lowerSearchQuery);
 
       if (queryIndex !== -1) {
-        const snippetRadius = 250; // Characters before and after
+        const snippetRadius = 250; 
         const startIndex = Math.max(0, queryIndex - snippetRadius);
         const endIndex = Math.min(textContent.length, queryIndex + lowerSearchQuery.length + snippetRadius);
         
         let snippet = textContent.substring(startIndex, endIndex);
 
-        // Try to make snippet start and end at word boundaries
         if (startIndex > 0) {
             const firstSpace = snippet.indexOf(' ');
             if (firstSpace > -1 && firstSpace < snippetRadius) snippet = snippet.substring(firstSpace + 1);
@@ -112,7 +116,7 @@ export async function askJohn(input: AskJohnInput): Promise<AskJohnOutput> {
 
 const askJohnPrompt = ai.definePrompt({
   name: 'askJohnPrompt',
-  input: {schema: AskJohnInputSchema},
+  input: {schema: AskJohnPromptInputSchema}, // Uses the internal schema with boolean flags
   output: {schema: AskJohnOutputSchema},
   tools: [searchWebTool, searchGoogleDocTool],
   prompt: `You are John, an expert insurance assistant. Your goal is to provide accurate and helpful answers.
@@ -125,8 +129,8 @@ Keep your answers concise and directly address the query.
 {{#if chatHistory.length}}
 Previous conversation:
 {{#each chatHistory}}
-{{#if (eq role "user")}}User: {{parts.[0].text}}{{/if}}
-{{#if (eq role "model")}}John: {{parts.[0].text}}{{/if}}
+{{#if isUser}}User: {{parts.[0].text}}{{/if}}
+{{#if isModel}}John: {{parts.[0].text}}{{/if}}
 {{/each}}
 {{/if}}
 
@@ -139,16 +143,26 @@ Provide your answer for the 'answer' field.
 const askJohnFlow = ai.defineFlow(
   {
     name: 'askJohnFlow',
-    inputSchema: AskJohnInputSchema,
+    inputSchema: AskJohnInputSchema, // Flow uses the public input schema
     outputSchema: AskJohnOutputSchema,
   },
-  async (input: AskJohnInput) => {
-    const llmResponse = await askJohnPrompt(input);
+  async (input: AskJohnInput) => { // input is of type AskJohnInput
+    // Transform chatHistory for the prompt
+    const promptInput = {
+      query: input.query,
+      chatHistory: input.chatHistory?.map(msg => ({
+        ...msg,
+        isUser: msg.role === 'user',
+        isModel: msg.role === 'model',
+      })),
+    };
+
+    // promptInput now matches AskJohnPromptInputSchema
+    const llmResponse = await askJohnPrompt(promptInput);
     const { output } = llmResponse;
 
     if (!output || !output.answer) {
       console.error("AskJohnFlow: LLM did not produce the expected output structure or answer was empty.", llmResponse);
-      // Check if there were tool calls that might explain missing direct answer
       const toolCalls = llmResponse.choices[0]?.message.toolCalls;
       const toolResults = llmResponse.choices[0]?.message.toolResponses;
 
@@ -167,3 +181,4 @@ const askJohnFlow = ai.defineFlow(
     return output;
   }
 );
+
