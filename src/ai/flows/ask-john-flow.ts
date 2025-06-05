@@ -242,4 +242,3 @@ const askJohnFlow = ai.defineFlow(
     return finalOutput;
   }
 );
-
