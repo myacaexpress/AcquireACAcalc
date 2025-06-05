@@ -10,6 +10,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { retrieveRelevantContext } from '../knowledgeIndexer'; // Import RAG context retrieval
 
 // Schema for the flow's public input and the exported AskJohnInput type
 const AskJohnInputSchema = z.object({
@@ -30,6 +31,7 @@ const AskJohnPromptInputSchema = z.object({
     isUser: z.boolean(),
     isModel: z.boolean(),
   })).optional(),
+  retrievedContext: z.string().optional(), // Add for context from knowledge base
 });
 
 const AskJohnOutputSchema = z.object({
@@ -56,111 +58,8 @@ const searchWebTool = ai.defineTool(
   }
 );
 
-const GOOGLE_DOC_URL = "https://docs.google.com/document/d/e/2PACX-1vTbS1jumfLRGI0p7A-ARCXRah23Y5vsNlpzdEEmP6aAs4wA2IH1s-DDRNvWDabh-cuOgX57OhmlZRst/pub";
-
-const searchGoogleDocTool = ai.defineTool(
-  {
-    name: 'searchGoogleDoc',
-    description: "Searches an internal Google Document containing company policies, definitions like 'SEP', 'Open Enrollment', 'Carrier Bonuses', and 'consent language'. Use this as the primary source for such topics.",
-    inputSchema: z.object({ searchQuery: z.string().describe('A query to search within the Google Doc.') }),
-    outputSchema: z.object({ results: z.string().describe('Relevant text content from the Google Doc.') }),
-  },
-  async ({ searchQuery }) => {
-    console.log(`[AskJohnFlow] Tool: searchGoogleDoc called with query: "${searchQuery}"`);
-    try {
-      const response = await fetch(GOOGLE_DOC_URL);
-      if (!response.ok) {
-        console.error(`[AskJohnFlow] Error fetching Google Doc: ${response.status} ${response.statusText}`);
-        return { results: `Error: Could not fetch the document (status: ${response.status}).` };
-      }
-      const htmlContent = await response.text();
-      console.log('[AskJohnFlow] Fetched HTML from Google Doc (first 500 chars):', htmlContent.substring(0,500));
-
-      // Step 1: Replace block-level closing tags and <br> with newlines
-      let textContent = htmlContent
-        .replace(/<\/(p|div|h[1-6]|li|tr|th|td)>/gi, '\n')
-        .replace(/<br\s*\/?>/gi, '\n');
-
-      // Step 2: Strip all other HTML tags
-      textContent = textContent.replace(/<[^>]*>/g, ' ');
-
-      // Step 3: Normalize whitespace
-      textContent = textContent.replace(/[ \t]+/g, ' ').trim(); // Consolidate spaces and tabs
-      textContent = textContent.replace(/\n\s*\n+/g, '\n').trim(); // Consolidate multiple newlines and trim whitespace around them
-
-      console.log('[AskJohnFlow] Processed textContent (first 500 chars):', textContent.substring(0,500));
-      
-      const lowerSearchQuery = searchQuery.toLowerCase();
-      let queryIndex = -1;
-      // Use a regex to find the match, preserving original casing for context later
-      const searchRegex = new RegExp(searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-      const match = textContent.match(searchRegex);
-
-      if (match && typeof match.index === 'number') {
-        queryIndex = match.index;
-        const matchedTermInDocument = match[0]; // The actual term found, with its original casing
-        console.log(`[AskJohnFlow] Found query "${searchQuery}" as "${matchedTermInDocument}" at index ${queryIndex}`);
-
-        // Find the start of the "paragraph" (previous \n or start of doc)
-        let paraStart = textContent.lastIndexOf('\n', queryIndex - 1);
-        paraStart = paraStart === -1 ? 0 : paraStart + 1; // adjust to char after \n
-
-        // Find the end of the "paragraph" (next \n or end of doc)
-        let paraEnd = textContent.indexOf('\n', queryIndex + matchedTermInDocument.length);
-        paraEnd = paraEnd === -1 ? textContent.length : paraEnd;
-        
-        let paragraph = textContent.substring(paraStart, paraEnd).trim();
-        console.log(`[AskJohnFlow] Initial extracted paragraph (length ${paragraph.length}): "${paragraph.substring(0, 200)}..."`);
-
-
-        const MAX_PARA_LENGTH = 1200; 
-        const SNIPPET_RADIUS = 400; 
-
-        if (paragraph.length > MAX_PARA_LENGTH) {
-            console.log(`[AskJohnFlow] Paragraph is too long (${paragraph.length} chars), creating snippet.`);
-            // Calculate snippet start and end relative to the full textContent
-            // to ensure we are centered around the original queryIndex
-            let snippetStartFullText = Math.max(0, queryIndex - SNIPPET_RADIUS);
-            let snippetEndFullText = Math.min(textContent.length, queryIndex + matchedTermInDocument.length + SNIPPET_RADIUS);
-            
-            paragraph = textContent.substring(snippetStartFullText, snippetEndFullText).trim();
-            
-            if (snippetStartFullText > 0 && !paragraph.startsWith(textContent.substring(0,10))) {
-                 paragraph = "..." + paragraph;
-            }
-            if (snippetEndFullText < textContent.length && !paragraph.endsWith(textContent.substring(textContent.length-10))) {
-                paragraph = paragraph + "...";
-            }
-            console.log(`[AskJohnFlow] Generated snippet: "${paragraph.substring(0,200)}..."`);
-        }
-        
-        if (paragraph && paragraph.toLowerCase().includes(lowerSearchQuery)) {
-          console.log(`[AskJohnFlow] Returning paragraph/snippet for LLM: "${paragraph}"`);
-          return { results: paragraph };
-        } else {
-          console.warn(`[AskJohnFlow] Extracted paragraph/snippet no longer contains query "${lowerSearchQuery}". Fallback used.`);
-          // Fallback if paragraph extraction failed to capture the query or paragraph is empty
-           const fallbackSnippetStart = Math.max(0, queryIndex - 150);
-           const fallbackSnippetEnd = Math.min(textContent.length, queryIndex + matchedTermInDocument.length + 150);
-           let fallbackSnippet = textContent.substring(fallbackSnippetStart, fallbackSnippetEnd).trim();
-           if (fallbackSnippetStart > 0) fallbackSnippet = "..." + fallbackSnippet;
-           if (fallbackSnippetEnd < textContent.length) fallbackSnippet = fallbackSnippet + "...";
-           const resultText = fallbackSnippet || `Could not extract a relevant snippet for "${searchQuery}".`;
-           console.log(`[AskJohnFlow] Returning fallback snippet for LLM: "${resultText}"`);
-           return { results: resultText };
-        }
-      } else {
-        console.log(`[AskJohnFlow] Query "${searchQuery}" not found in document.`);
-        return { results: `The query "${searchQuery}" was not found in the document.` };
-      }
-
-    } catch (error) {
-      console.error(`[AskJohnFlow] Exception in searchGoogleDocTool:`, error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      return { results: `Error: Could not process the document search. Details: ${errorMessage}` };
-    }
-  }
-);
+// The searchGoogleDocTool is now replaced by the RAG system using knowledge_base.md
+// We can remove its definition and GOOGLE_DOC_URL.
 
 export async function askJohn(input: AskJohnInput): Promise<AskJohnOutput> {
   return askJohnFlow(input);
@@ -168,20 +67,20 @@ export async function askJohn(input: AskJohnInput): Promise<AskJohnOutput> {
 
 const askJohnPrompt = ai.definePrompt({
   name: 'askJohnPrompt',
-  input: {schema: AskJohnPromptInputSchema},
+  input: {schema: AskJohnPromptInputSchema}, // Will add retrievedContext here
   output: {schema: AskJohnOutputSchema},
-  tools: [searchWebTool, searchGoogleDocTool],
+  tools: [searchWebTool], // Removed searchGoogleDocTool
   prompt: `You are John, an expert insurance assistant specializing in ACA health insurance. Your task is to directly answer the user's query.
-If the query requires information about 'SEP', 'Open Enrollment', 'Carrier Bonuses', 'consent language', or company policies, you MUST use the 'searchGoogleDoc' tool to find the relevant information.
-If the query requires current events or general knowledge, use the 'searchWeb' tool.
+Base your answers on the provided context from our knowledge base if relevant.
+If the query requires current events or general knowledge not covered by the provided context, use the 'searchWeb' tool.
 
-**CRITICALLY IMPORTANT: Your response in the 'answer' field MUST BE the direct answer to the user's query, using the information retrieved from the tools. DO NOT talk about using a tool or your intention to search. Just provide the information as if you know it because you are an expert.**
+**CRITICALLY IMPORTANT: Your response in the 'answer' field MUST BE the direct answer to the user's query. If context from the knowledge base is provided, synthesize that information into your answer. DO NOT talk about using a tool or your intention to search, unless you are using the 'searchWeb' tool.**
 
-For example, if the user asks "What is consent language?" and the 'searchGoogleDoc' tool returns "Consent language is the specific phrasing used...", your 'answer' should be "Consent language is the specific phrasing used...".
-DO NOT say "I will search the document for consent language" or "The searchGoogleDoc tool found that consent language is...".
+For example, if the user asks "What is consent language?" and the knowledge base context is "Consent language is the specific phrasing used...", your 'answer' should be "Consent language is the specific phrasing used...".
+DO NOT say "I found in the knowledge base that consent language is...".
 
 If a tool was used and returned information, synthesize that information into a direct, helpful answer.
-If a tool returns an error or no relevant information, then you should state that you couldn't find the specific information. For example: "I couldn't find specific details about that in our resources."
+If the provided context or web search does not yield an answer, then state that you couldn't find the specific information. For example: "I couldn't find specific details about that in our resources."
 Keep your answers concise and directly address the user's question.
 
 {{#if chatHistory.length}}
@@ -192,9 +91,16 @@ Previous conversation:
 {{/each}}
 {{/if}}
 
+{{#if retrievedContext}}
+Context from our knowledge base:
+---
+{{retrievedContext}}
+---
+{{/if}}
+
 Current user query: {{{query}}}
 
-Populate the 'answer' field with your direct response based on the query and any information retrieved from your tools, following the instructions above.
+Populate the 'answer' field with your direct response based on the query, the provided knowledge base context, and any information retrieved from your tools, following the instructions above.
 `,
 });
 
@@ -205,6 +111,11 @@ const askJohnFlow = ai.defineFlow(
     outputSchema: AskJohnOutputSchema,
   },
   async (input: AskJohnInput) => {
+    const contextChunks = await retrieveRelevantContext(input.query);
+    const retrievedContext = contextChunks.join('\n\n---\n\n'); // Join chunks for the prompt
+
+    console.log(`[AskJohnFlow] Retrieved context for query "${input.query}":\n${retrievedContext.substring(0, 500)}...`);
+
     const promptInput = {
       query: input.query,
       chatHistory: input.chatHistory?.map(msg => ({
@@ -212,6 +123,7 @@ const askJohnFlow = ai.defineFlow(
         isUser: msg.role === 'user',
         isModel: msg.role === 'model',
       })),
+      retrievedContext: retrievedContext.length > 0 ? retrievedContext : undefined,
     };
 
     const llmResponse = await askJohnPrompt(promptInput);
@@ -227,14 +139,30 @@ const askJohnFlow = ai.defineFlow(
         JSON.stringify(llmResponse, null, 2) 
       );
       // Attempt to find an answer in the choices if the structured output is empty
-      // This might happen if the LLM responded but it wasn't in the expected schema
-      const lastModelChoice = llmResponse.choices
-        .filter(c => c.message.role === 'model' && c.message.parts.some(p => p.text && p.text.trim() !== ''))
-        .pop();
+      let fallbackAnswer: string | undefined;
+
+      if (typeof (llmResponse as any)?.raw === 'function') {
+        const rawResponseData = (llmResponse as any).raw() as { choices?: Array<{ message?: { role: string; parts: Array<{ text?: string }> } }> } | undefined;
+
+        if (rawResponseData && Array.isArray(rawResponseData.choices)) {
+          const modelChoices = rawResponseData.choices.filter(
+            (c) => c.message?.role === 'model' && c.message.parts.some(p => typeof p.text === 'string' && p.text.trim() !== '')
+          );
+          
+          if (modelChoices.length > 0) {
+            const lastModelMessageParts = modelChoices[modelChoices.length - 1].message?.parts;
+            if (lastModelMessageParts && lastModelMessageParts.length > 0 && typeof lastModelMessageParts[0].text === 'string') {
+              fallbackAnswer = lastModelMessageParts[0].text;
+            }
+          }
+        }
+      } else {
+        console.warn("[AskJohnFlow] llmResponse.raw() is not a function or llmResponse is not as expected.");
+      }
       
-      if (lastModelChoice && lastModelChoice.message.parts[0].text) {
+      if (fallbackAnswer) {
         console.log("[AskJohnFlow] Using text from last model choice as fallback answer.");
-        return { answer: lastModelChoice.message.parts[0].text };
+        return { answer: fallbackAnswer };
       }
 
       return { answer: "I'm having a bit of trouble finding that information right now. Could you try rephrasing or asking something else?" };
