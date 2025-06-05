@@ -63,7 +63,7 @@ const searchGoogleDocTool = ai.defineTool(
     name: 'searchGoogleDoc',
     description: "Searches an internal Google Document containing company policies, definitions like 'SEP', 'Open Enrollment', 'Carrier Bonuses', and 'consent language'. Use this as the primary source for such topics.",
     inputSchema: z.object({ searchQuery: z.string().describe('A query to search within the Google Doc.') }),
-    outputSchema: z.object({ results: z.string().describe('Relevant snippets or summary from the Google Doc.') }),
+    outputSchema: z.object({ results: z.string().describe('Relevant text content from the Google Doc.') }),
   },
   async ({ searchQuery }) => {
     console.log(`[AskJohnFlow] Tool: searchGoogleDoc called with query: "${searchQuery}"`);
@@ -74,49 +74,83 @@ const searchGoogleDocTool = ai.defineTool(
         return { results: `Error: Could not fetch the document (status: ${response.status}).` };
       }
       const htmlContent = await response.text();
-      let textContent = htmlContent.replace(/<style[^>]*>.*<\/style>/gs, '');
+      console.log('[AskJohnFlow] Fetched HTML from Google Doc (first 500 chars):', htmlContent.substring(0,500));
+
+      // Step 1: Replace block-level closing tags and <br> with newlines
+      let textContent = htmlContent
+        .replace(/<\/(p|div|h[1-6]|li|tr|th|td)>/gi, '\n')
+        .replace(/<br\s*\/?>/gi, '\n');
+
+      // Step 2: Strip all other HTML tags
       textContent = textContent.replace(/<[^>]*>/g, ' ');
-      textContent = textContent.replace(/\s+/g, ' ').trim();
 
+      // Step 3: Normalize whitespace
+      textContent = textContent.replace(/[ \t]+/g, ' ').trim(); // Consolidate spaces and tabs
+      textContent = textContent.replace(/\n\s*\n+/g, '\n').trim(); // Consolidate multiple newlines and trim whitespace around them
+
+      console.log('[AskJohnFlow] Processed textContent (first 500 chars):', textContent.substring(0,500));
+      
       const lowerSearchQuery = searchQuery.toLowerCase();
-      const queryIndex = textContent.toLowerCase().indexOf(lowerSearchQuery);
+      let queryIndex = -1;
+      // Use a regex to find the match, preserving original casing for context later
+      const searchRegex = new RegExp(searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      const match = textContent.match(searchRegex);
 
-      if (queryIndex !== -1) {
-        const snippetRadius = 250; // Characters around the query
-        let windowStart = Math.max(0, queryIndex - snippetRadius);
-        let windowEnd = Math.min(textContent.length, queryIndex + lowerSearchQuery.length + snippetRadius);
+      if (match && typeof match.index === 'number') {
+        queryIndex = match.index;
+        const matchedTermInDocument = match[0]; // The actual term found, with its original casing
+        console.log(`[AskJohnFlow] Found query "${searchQuery}" as "${matchedTermInDocument}" at index ${queryIndex}`);
+
+        // Find the start of the "paragraph" (previous \n or start of doc)
+        let paraStart = textContent.lastIndexOf('\n', queryIndex - 1);
+        paraStart = paraStart === -1 ? 0 : paraStart + 1; // adjust to char after \n
+
+        // Find the end of the "paragraph" (next \n or end of doc)
+        let paraEnd = textContent.indexOf('\n', queryIndex + matchedTermInDocument.length);
+        paraEnd = paraEnd === -1 ? textContent.length : paraEnd;
         
-        let snippet = textContent.substring(windowStart, windowEnd);
+        let paragraph = textContent.substring(paraStart, paraEnd).trim();
+        console.log(`[AskJohnFlow] Initial extracted paragraph (length ${paragraph.length}): "${paragraph.substring(0, 200)}..."`);
 
-        // Try to adjust start to a word boundary
-        if (windowStart > 0) {
-            const lastSpace = snippet.substring(0, queryIndex - windowStart).lastIndexOf(' ');
-            if (lastSpace !== -1 && (queryIndex - windowStart) - lastSpace < snippetRadius / 2) { // Only trim if space is reasonably close
-                 snippet = snippet.substring(lastSpace + 1);
+
+        const MAX_PARA_LENGTH = 1200; 
+        const SNIPPET_RADIUS = 400; 
+
+        if (paragraph.length > MAX_PARA_LENGTH) {
+            console.log(`[AskJohnFlow] Paragraph is too long (${paragraph.length} chars), creating snippet.`);
+            // Calculate snippet start and end relative to the full textContent
+            // to ensure we are centered around the original queryIndex
+            let snippetStartFullText = Math.max(0, queryIndex - SNIPPET_RADIUS);
+            let snippetEndFullText = Math.min(textContent.length, queryIndex + matchedTermInDocument.length + SNIPPET_RADIUS);
+            
+            paragraph = textContent.substring(snippetStartFullText, snippetEndFullText).trim();
+            
+            if (snippetStartFullText > 0 && !paragraph.startsWith(textContent.substring(0,10))) {
+                 paragraph = "..." + paragraph;
             }
-        }
-        // Try to adjust end to a word boundary
-        const currentMatchStartIndex = snippet.toLowerCase().indexOf(lowerSearchQuery); // Re-evaluate index in potentially trimmed snippet
-        if (currentMatchStartIndex !== -1 && windowEnd < textContent.length) {
-            const matchEndIndexInSnippet = currentMatchStartIndex + lowerSearchQuery.length;
-            const firstSpace = snippet.substring(matchEndIndexInSnippet).indexOf(' ');
-            if (firstSpace !== -1 && firstSpace < snippetRadius / 2) { // Only trim if space is reasonably close
-                snippet = snippet.substring(0, matchEndIndexInSnippet + firstSpace);
+            if (snippetEndFullText < textContent.length && !paragraph.endsWith(textContent.substring(textContent.length-10))) {
+                paragraph = paragraph + "...";
             }
+            console.log(`[AskJohnFlow] Generated snippet: "${paragraph.substring(0,200)}..."`);
         }
         
-        // Ensure the query is still in the snippet, otherwise fallback to simpler extraction
-        if (snippet.toLowerCase().indexOf(lowerSearchQuery) === -1) {
-            const fallbackStart = Math.max(0, queryIndex - 75);
-            const fallbackEnd = Math.min(textContent.length, queryIndex + lowerSearchQuery.length + 75);
-            snippet = textContent.substring(fallbackStart, fallbackEnd);
+        if (paragraph && paragraph.toLowerCase().includes(lowerSearchQuery)) {
+          console.log(`[AskJohnFlow] Returning paragraph/snippet for LLM: "${paragraph}"`);
+          return { results: paragraph };
+        } else {
+          console.warn(`[AskJohnFlow] Extracted paragraph/snippet no longer contains query "${lowerSearchQuery}". Fallback used.`);
+          // Fallback if paragraph extraction failed to capture the query or paragraph is empty
+           const fallbackSnippetStart = Math.max(0, queryIndex - 150);
+           const fallbackSnippetEnd = Math.min(textContent.length, queryIndex + matchedTermInDocument.length + 150);
+           let fallbackSnippet = textContent.substring(fallbackSnippetStart, fallbackSnippetEnd).trim();
+           if (fallbackSnippetStart > 0) fallbackSnippet = "..." + fallbackSnippet;
+           if (fallbackSnippetEnd < textContent.length) fallbackSnippet = fallbackSnippet + "...";
+           const resultText = fallbackSnippet || `Could not extract a relevant snippet for "${searchQuery}".`;
+           console.log(`[AskJohnFlow] Returning fallback snippet for LLM: "${resultText}"`);
+           return { results: resultText };
         }
-        
-        const prefixEllipsis = windowStart > 0 && !snippet.startsWith(textContent.substring(0,10)) ? "..." : "";
-        const suffixEllipsis = windowEnd < textContent.length && !snippet.endsWith(textContent.substring(textContent.length -10)) ? "..." : "";
-
-        return { results: `Found in document: ${prefixEllipsis}${snippet}${suffixEllipsis}` };
       } else {
+        console.log(`[AskJohnFlow] Query "${searchQuery}" not found in document.`);
         return { results: `The query "${searchQuery}" was not found in the document.` };
       }
 
@@ -186,13 +220,22 @@ const askJohnFlow = ai.defineFlow(
 
     if (!finalOutput || !finalOutput.answer || finalOutput.answer.trim() === "") {
       console.error(
-        "AskJohnFlow: LLM did not produce a valid 'answer' in the output schema, or the answer was empty. Full response:",
-        JSON.stringify(llmResponse, null, 2) // Log the entire response for debugging
+        "[AskJohnFlow] LLM did not produce a valid 'answer' in the output schema, or the answer was empty. Full LLM response object:",
+        JSON.stringify(llmResponse, null, 2) 
       );
+      // Attempt to find an answer in the choices if the structured output is empty
+      // This might happen if the LLM responded but it wasn't in the expected schema
+      const lastModelChoice = llmResponse.choices
+        .filter(c => c.message.role === 'model' && c.message.parts.some(p => p.text && p.text.trim() !== ''))
+        .pop();
+      
+      if (lastModelChoice && lastModelChoice.message.parts[0].text) {
+        console.log("[AskJohnFlow] Using text from last model choice as fallback answer.");
+        return { answer: lastModelChoice.message.parts[0].text };
+      }
+
       return { answer: "I'm having a bit of trouble finding that information right now. Could you try rephrasing or asking something else?" };
     }
     return finalOutput;
   }
 );
-
-    
