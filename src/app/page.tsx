@@ -33,7 +33,7 @@ export interface SummaryMetrics {
   maxLoss: number;
 }
 
-export default function RevenueAscentPage() {
+export default function ACACalculatorPage() {
   const [leadPurchaseType, setLeadPurchaseType] = useState('monthly');
   const [leadsPurchasedInput, setLeadsPurchasedInput] = useState<string | number>(100);
   const [leadCost, setLeadCost] = useState<string | number>(40);
@@ -184,7 +184,7 @@ export default function RevenueAscentPage() {
     <div className="min-h-screen bg-background p-4 sm:p-6 md:p-8">
       <div className="container mx-auto max-w-7xl">
         <header className="mb-8 text-center py-8">
-          <h1 className="text-4xl font-bold text-primary font-headline">Revenue Ascent</h1>
+          <h1 className="text-4xl font-bold text-primary font-headline">ACA Client Acquisition Calculator</h1>
           <p className="text-lg text-muted-foreground mt-2">Estimate your commission & revenue potential over 12 months.</p>
         </header>
 
@@ -245,7 +245,7 @@ export default function RevenueAscentPage() {
         </Card>
         
         <footer className="mt-12 py-8 text-center text-sm text-muted-foreground">
-            <p>&copy; {new Date().getFullYear()} Revenue Ascent. All calculations are estimates.</p>
+            <p>&copy; {new Date().getFullYear()} ACA Client Acquisition Calculator. All calculations are estimates.</p>
             <p>Assumes selected lead & AOR models, and no customer churn.</p>
         </footer>
       </div>

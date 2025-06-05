@@ -3,7 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
-  title: 'Revenue Ascent',
+  title: 'ACA Client Acquisition Calculator',
   description: 'Commission & Revenue Projection Calculator by Firebase Studio',
 };
 
