@@ -61,7 +61,7 @@ const GOOGLE_DOC_URL = "https://docs.google.com/document/d/e/2PACX-1vTbS1jumfLRG
 const searchGoogleDocTool = ai.defineTool(
   {
     name: 'searchGoogleDoc',
-    description: "Searches an internal Google Document containing company policies, definitions like 'SEP', 'Open Enrollment', and information on 'Carrier Bonuses'. Use this as the primary source for such topics.",
+    description: "Searches an internal Google Document containing company policies, definitions like 'SEP', 'Open Enrollment', 'Carrier Bonuses', and 'consent language'. Use this as the primary source for such topics.",
     inputSchema: z.object({ searchQuery: z.string().describe('A query to search within the Google Doc.') }),
     outputSchema: z.object({ results: z.string().describe('Relevant snippets or summary from the Google Doc.') }),
   },
@@ -74,55 +74,46 @@ const searchGoogleDocTool = ai.defineTool(
         return { results: `Error: Could not fetch the document (status: ${response.status}).` };
       }
       const htmlContent = await response.text();
-      let textContent = htmlContent.replace(/<style[^>]*>.*<\/style>/gs, ''); 
-      textContent = textContent.replace(/<[^>]*>/g, ' '); 
-      textContent = textContent.replace(/\s+/g, ' ').trim(); 
+      let textContent = htmlContent.replace(/<style[^>]*>.*<\/style>/gs, '');
+      textContent = textContent.replace(/<[^>]*>/g, ' ');
+      textContent = textContent.replace(/\s+/g, ' ').trim();
 
       const lowerSearchQuery = searchQuery.toLowerCase();
       const queryIndex = textContent.toLowerCase().indexOf(lowerSearchQuery);
 
       if (queryIndex !== -1) {
-        const snippetRadius = 250;
-        const windowStart = Math.max(0, queryIndex - snippetRadius);
-        const windowEnd = Math.min(textContent.length, queryIndex + lowerSearchQuery.length + snippetRadius);
-
+        const snippetRadius = 250; // Characters around the query
+        let windowStart = Math.max(0, queryIndex - snippetRadius);
+        let windowEnd = Math.min(textContent.length, queryIndex + lowerSearchQuery.length + snippetRadius);
+        
         let snippet = textContent.substring(windowStart, windowEnd);
-        
-        // Adjust start of snippet to be on a word boundary from the context before the match
-        if (windowStart > 0) { 
-          const matchStartIndexInCurrentSnippet = queryIndex - windowStart;
-          const prefixPart = snippet.substring(0, matchStartIndexInCurrentSnippet);
-          const lastSpaceInPrefix = prefixPart.lastIndexOf(' ');
-          if (lastSpaceInPrefix !== -1) {
-            snippet = snippet.substring(lastSpaceInPrefix + 1); 
-          }
-          // If no space, means prefix is one word or empty; keep as is.
-        }
 
-        // Adjust end of snippet to be on a word boundary from the context after the match
-        // Need to re-calculate match position if snippet start was trimmed
-        const currentMatchStartIndex = snippet.toLowerCase().indexOf(lowerSearchQuery);
+        // Try to adjust start to a word boundary
+        if (windowStart > 0) {
+            const lastSpace = snippet.substring(0, queryIndex - windowStart).lastIndexOf(' ');
+            if (lastSpace !== -1 && (queryIndex - windowStart) - lastSpace < snippetRadius / 2) { // Only trim if space is reasonably close
+                 snippet = snippet.substring(lastSpace + 1);
+            }
+        }
+        // Try to adjust end to a word boundary
+        const currentMatchStartIndex = snippet.toLowerCase().indexOf(lowerSearchQuery); // Re-evaluate index in potentially trimmed snippet
         if (currentMatchStartIndex !== -1 && windowEnd < textContent.length) {
-          const matchEndIndexInCurrentSnippet = currentMatchStartIndex + lowerSearchQuery.length;
-          const suffixPart = snippet.substring(matchEndIndexInCurrentSnippet);
-          const firstSpaceInSuffix = suffixPart.indexOf(' ');
-          if (firstSpaceInSuffix !== -1) {
-            snippet = snippet.substring(0, matchEndIndexInCurrentSnippet + firstSpaceInSuffix);
-          }
-          // If no space, means suffix is one word or empty; keep as is.
+            const matchEndIndexInSnippet = currentMatchStartIndex + lowerSearchQuery.length;
+            const firstSpace = snippet.substring(matchEndIndexInSnippet).indexOf(' ');
+            if (firstSpace !== -1 && firstSpace < snippetRadius / 2) { // Only trim if space is reasonably close
+                snippet = snippet.substring(0, matchEndIndexInSnippet + firstSpace);
+            }
         }
         
-        let prefixEllipsis = windowStart > 0 ? "..." : "";
-        let suffixEllipsis = windowEnd < textContent.length ? "..." : "";
-        
-        // Fallback if aggressive trimming somehow removed the query
+        // Ensure the query is still in the snippet, otherwise fallback to simpler extraction
         if (snippet.toLowerCase().indexOf(lowerSearchQuery) === -1) {
-            const fallbackStart = Math.max(0, queryIndex - 75); // Shorter radius for fallback
+            const fallbackStart = Math.max(0, queryIndex - 75);
             const fallbackEnd = Math.min(textContent.length, queryIndex + lowerSearchQuery.length + 75);
             snippet = textContent.substring(fallbackStart, fallbackEnd);
-            prefixEllipsis = fallbackStart > 0 ? "..." : "";
-            suffixEllipsis = fallbackEnd < textContent.length ? "..." : "";
         }
+        
+        const prefixEllipsis = windowStart > 0 && !snippet.startsWith(textContent.substring(0,10)) ? "..." : "";
+        const suffixEllipsis = windowEnd < textContent.length && !snippet.endsWith(textContent.substring(textContent.length -10)) ? "..." : "";
 
         return { results: `Found in document: ${prefixEllipsis}${snippet}${suffixEllipsis}` };
       } else {
@@ -143,15 +134,18 @@ export async function askJohn(input: AskJohnInput): Promise<AskJohnOutput> {
 
 const askJohnPrompt = ai.definePrompt({
   name: 'askJohnPrompt',
-  input: {schema: AskJohnPromptInputSchema}, 
+  input: {schema: AskJohnPromptInputSchema},
   output: {schema: AskJohnOutputSchema},
   tools: [searchWebTool, searchGoogleDocTool],
-  prompt: `You are John, an expert insurance assistant. Your goal is to provide accurate and helpful answers.
-Use the available tools (searchWeb, searchGoogleDoc) to find relevant information if the user's query requires it.
-**Prioritize information from searchGoogleDoc for topics like 'SEP', 'Open Enrollment', 'Carrier Bonuses', 'consent language', or other company policies and procedures.**
-Use searchWeb for current events, or general knowledge not found in the Google document.
-If you use a tool, briefly mention the source of your information in your answer (e.g., "According to our documents..." or "Based on a web search..."). If a tool returns an error or no results, state that you couldn't find the specific information using that tool.
-Keep your answers concise and directly address the query.
+  prompt: `You are John, an expert insurance assistant. Your task is to answer the user's query.
+If the query requires information about 'SEP', 'Open Enrollment', 'Carrier Bonuses', 'consent language', or company policies, you MUST use the 'searchGoogleDoc' tool.
+If the query requires current events or general knowledge, use the 'searchWeb' tool.
+
+**IMPORTANT: After a tool is used and returns its results, you MUST use those results to construct the text for the 'answer' field. The 'answer' field should contain the actual information found or a summary, not a statement about your intention to search.**
+
+If a tool was used, briefly mention its source in the 'answer' field (e.g., "According to our documents..." or "Based on a web search...").
+If a tool returns an error or no relevant results, state that you couldn't find the specific information using that tool in the 'answer' field.
+Keep your answers concise.
 
 {{#if chatHistory.length}}
 Previous conversation:
@@ -163,17 +157,17 @@ Previous conversation:
 
 Current user query: {{{query}}}
 
-Provide your answer for the 'answer' field.
+Populate the 'answer' field with your response based on the query and any information retrieved from your tools.
 `,
 });
 
 const askJohnFlow = ai.defineFlow(
   {
     name: 'askJohnFlow',
-    inputSchema: AskJohnInputSchema, 
+    inputSchema: AskJohnInputSchema,
     outputSchema: AskJohnOutputSchema,
   },
-  async (input: AskJohnInput) => { 
+  async (input: AskJohnInput) => {
     const promptInput = {
       query: input.query,
       chatHistory: input.chatHistory?.map(msg => ({
@@ -184,29 +178,21 @@ const askJohnFlow = ai.defineFlow(
     };
 
     const llmResponse = await askJohnPrompt(promptInput);
-    const { output } = llmResponse;
+    // llmResponse is the direct result of ai.generate(), which includes:
+    // - output: The structured output if generation was successful and matched schema.
+    // - choices: Raw LLM choices, potentially including tool calls/responses from intermediate steps.
+    
+    const finalOutput = llmResponse.output;
 
-    if (!output || !output.answer) {
-      console.error("AskJohnFlow: LLM did not produce the expected output structure or answer was empty.", llmResponse);
-      const toolCalls = llmResponse.choices[0]?.message.toolCalls;
-      const toolResults = llmResponse.choices[0]?.message.toolResponses;
-
-      if (toolCalls && toolCalls.length > 0) {
-         let toolSummary = "I tried using my tools: ";
-         toolCalls.forEach((call, index) => {
-             toolSummary += `Called ${call.name}. `;
-             if(toolResults && toolResults[index] && toolResults[index].response) {
-                 const toolCallOutput = toolResults[index].response?.output as { results?: string };
-                 toolSummary += `Result: ${toolCallOutput?.results || "no specific result text"}. `;
-             } else {
-                toolSummary += `No result or error from tool. `;
-             }
-         });
-         return { answer: `${toolSummary} However, I couldn't form a final answer based on that. Could you try rephrasing or asking something else?` };
-      }
-      return { answer: "I'm having a bit of trouble finding that information right now. Please try asking differently or check back later." };
+    if (!finalOutput || !finalOutput.answer || finalOutput.answer.trim() === "") {
+      console.error(
+        "AskJohnFlow: LLM did not produce a valid 'answer' in the output schema, or the answer was empty. Full response:",
+        JSON.stringify(llmResponse, null, 2) // Log the entire response for debugging
+      );
+      return { answer: "I'm having a bit of trouble finding that information right now. Could you try rephrasing or asking something else?" };
     }
-    return output;
+    return finalOutput;
   }
 );
 
+    
