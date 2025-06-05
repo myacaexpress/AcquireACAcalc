@@ -59,7 +59,6 @@ const searchWebTool = ai.defineTool(
 );
 
 // The searchGoogleDocTool is now replaced by the RAG system using knowledge_base.md
-// We can remove its definition and GOOGLE_DOC_URL.
 
 export async function askJohn(input: AskJohnInput): Promise<AskJohnOutput> {
   return askJohnFlow(input);
@@ -67,12 +66,12 @@ export async function askJohn(input: AskJohnInput): Promise<AskJohnOutput> {
 
 const askJohnPrompt = ai.definePrompt({
   name: 'askJohnPrompt',
-  input: {schema: AskJohnPromptInputSchema}, // Will add retrievedContext here
+  input: {schema: AskJohnPromptInputSchema},
   output: {schema: AskJohnOutputSchema},
-  tools: [searchWebTool], // Removed searchGoogleDocTool
+  tools: [searchWebTool], // Only web search tool now
   prompt: `You are John, an expert insurance assistant specializing in ACA health insurance. Your task is to directly answer the user's query.
-Base your answers on the provided context from our knowledge base if relevant.
-If the query requires current events or general knowledge not covered by the provided context, use the 'searchWeb' tool.
+Base your answers on the provided context from our knowledge base (information from 'knowledge_base.md') if relevant.
+If the query requires current events or general knowledge not covered by the provided knowledge base context, use the 'searchWeb' tool.
 
 **CRITICALLY IMPORTANT: Your response in the 'answer' field MUST BE the direct answer to the user's query. If context from the knowledge base is provided, synthesize that information into your answer. DO NOT talk about using a tool or your intention to search, unless you are using the 'searchWeb' tool.**
 
@@ -112,7 +111,7 @@ const askJohnFlow = ai.defineFlow(
   },
   async (input: AskJohnInput) => {
     const contextChunks = await retrieveRelevantContext(input.query);
-    const retrievedContext = contextChunks.join('\n\n---\n\n'); // Join chunks for the prompt
+    const retrievedContext = contextChunks.join('\n\n---\n\n'); 
 
     console.log(`[AskJohnFlow] Retrieved context for query "${input.query}":\n${retrievedContext.substring(0, 500)}...`);
 
@@ -127,10 +126,6 @@ const askJohnFlow = ai.defineFlow(
     };
 
     const llmResponse = await askJohnPrompt(promptInput);
-    // llmResponse is the direct result of ai.generate(), which includes:
-    // - output: The structured output if generation was successful and matched schema.
-    // - choices: Raw LLM choices, potentially including tool calls/responses from intermediate steps.
-    
     const finalOutput = llmResponse.output;
 
     if (!finalOutput || !finalOutput.answer || finalOutput.answer.trim() === "") {
@@ -138,9 +133,11 @@ const askJohnFlow = ai.defineFlow(
         "[AskJohnFlow] LLM did not produce a valid 'answer' in the output schema, or the answer was empty. Full LLM response object:",
         JSON.stringify(llmResponse, null, 2) 
       );
+      
       // Attempt to find an answer in the choices if the structured output is empty
       let fallbackAnswer: string | undefined;
 
+      // Check if llmResponse.raw exists and is a function (Genkit 1.x style for choices)
       if (typeof (llmResponse as any)?.raw === 'function') {
         const rawResponseData = (llmResponse as any).raw() as { choices?: Array<{ message?: { role: string; parts: Array<{ text?: string }> } }> } | undefined;
 
@@ -157,6 +154,7 @@ const askJohnFlow = ai.defineFlow(
           }
         }
       } else {
+         // Fallback for older Genkit or different response structures if needed, or just log a warning
         console.warn("[AskJohnFlow] llmResponse.raw() is not a function or llmResponse is not as expected.");
       }
       
@@ -170,3 +168,4 @@ const askJohnFlow = ai.defineFlow(
     return finalOutput;
   }
 );
+
