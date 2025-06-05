@@ -82,22 +82,49 @@ const searchGoogleDocTool = ai.defineTool(
       const queryIndex = textContent.toLowerCase().indexOf(lowerSearchQuery);
 
       if (queryIndex !== -1) {
-        const snippetRadius = 250; 
-        const startIndex = Math.max(0, queryIndex - snippetRadius);
-        const endIndex = Math.min(textContent.length, queryIndex + lowerSearchQuery.length + snippetRadius);
-        
-        let snippet = textContent.substring(startIndex, endIndex);
+        const snippetRadius = 250;
+        const windowStart = Math.max(0, queryIndex - snippetRadius);
+        const windowEnd = Math.min(textContent.length, queryIndex + lowerSearchQuery.length + snippetRadius);
 
-        if (startIndex > 0) {
-            const firstSpace = snippet.indexOf(' ');
-            if (firstSpace > -1 && firstSpace < snippetRadius) snippet = snippet.substring(firstSpace + 1);
+        let snippet = textContent.substring(windowStart, windowEnd);
+        
+        // Adjust start of snippet to be on a word boundary from the context before the match
+        if (windowStart > 0) { 
+          const matchStartIndexInCurrentSnippet = queryIndex - windowStart;
+          const prefixPart = snippet.substring(0, matchStartIndexInCurrentSnippet);
+          const lastSpaceInPrefix = prefixPart.lastIndexOf(' ');
+          if (lastSpaceInPrefix !== -1) {
+            snippet = snippet.substring(lastSpaceInPrefix + 1); 
+          }
+          // If no space, means prefix is one word or empty; keep as is.
         }
-        if (endIndex < textContent.length) {
-            const lastSpace = snippet.lastIndexOf(' ');
-            if (lastSpace > -1 && lastSpace > snippet.length - snippetRadius) snippet = snippet.substring(0, lastSpace);
+
+        // Adjust end of snippet to be on a word boundary from the context after the match
+        // Need to re-calculate match position if snippet start was trimmed
+        const currentMatchStartIndex = snippet.toLowerCase().indexOf(lowerSearchQuery);
+        if (currentMatchStartIndex !== -1 && windowEnd < textContent.length) {
+          const matchEndIndexInCurrentSnippet = currentMatchStartIndex + lowerSearchQuery.length;
+          const suffixPart = snippet.substring(matchEndIndexInCurrentSnippet);
+          const firstSpaceInSuffix = suffixPart.indexOf(' ');
+          if (firstSpaceInSuffix !== -1) {
+            snippet = snippet.substring(0, matchEndIndexInCurrentSnippet + firstSpaceInSuffix);
+          }
+          // If no space, means suffix is one word or empty; keep as is.
         }
         
-        return { results: `Found in document: "...${snippet}..."` };
+        let prefixEllipsis = windowStart > 0 ? "..." : "";
+        let suffixEllipsis = windowEnd < textContent.length ? "..." : "";
+        
+        // Fallback if aggressive trimming somehow removed the query
+        if (snippet.toLowerCase().indexOf(lowerSearchQuery) === -1) {
+            const fallbackStart = Math.max(0, queryIndex - 75); // Shorter radius for fallback
+            const fallbackEnd = Math.min(textContent.length, queryIndex + lowerSearchQuery.length + 75);
+            snippet = textContent.substring(fallbackStart, fallbackEnd);
+            prefixEllipsis = fallbackStart > 0 ? "..." : "";
+            suffixEllipsis = fallbackEnd < textContent.length ? "..." : "";
+        }
+
+        return { results: `Found in document: ${prefixEllipsis}${snippet}${suffixEllipsis}` };
       } else {
         return { results: `The query "${searchQuery}" was not found in the document.` };
       }
@@ -116,12 +143,12 @@ export async function askJohn(input: AskJohnInput): Promise<AskJohnOutput> {
 
 const askJohnPrompt = ai.definePrompt({
   name: 'askJohnPrompt',
-  input: {schema: AskJohnPromptInputSchema}, // Uses the internal schema with boolean flags
+  input: {schema: AskJohnPromptInputSchema}, 
   output: {schema: AskJohnOutputSchema},
   tools: [searchWebTool, searchGoogleDocTool],
   prompt: `You are John, an expert insurance assistant. Your goal is to provide accurate and helpful answers.
 Use the available tools (searchWeb, searchGoogleDoc) to find relevant information if the user's query requires it.
-**Prioritize information from searchGoogleDoc for topics like 'SEP', 'Open Enrollment', 'Carrier Bonuses', or other company policies and procedures.**
+**Prioritize information from searchGoogleDoc for topics like 'SEP', 'Open Enrollment', 'Carrier Bonuses', 'consent language', or other company policies and procedures.**
 Use searchWeb for current events, or general knowledge not found in the Google document.
 If you use a tool, briefly mention the source of your information in your answer (e.g., "According to our documents..." or "Based on a web search..."). If a tool returns an error or no results, state that you couldn't find the specific information using that tool.
 Keep your answers concise and directly address the query.
@@ -143,11 +170,10 @@ Provide your answer for the 'answer' field.
 const askJohnFlow = ai.defineFlow(
   {
     name: 'askJohnFlow',
-    inputSchema: AskJohnInputSchema, // Flow uses the public input schema
+    inputSchema: AskJohnInputSchema, 
     outputSchema: AskJohnOutputSchema,
   },
-  async (input: AskJohnInput) => { // input is of type AskJohnInput
-    // Transform chatHistory for the prompt
+  async (input: AskJohnInput) => { 
     const promptInput = {
       query: input.query,
       chatHistory: input.chatHistory?.map(msg => ({
@@ -157,7 +183,6 @@ const askJohnFlow = ai.defineFlow(
       })),
     };
 
-    // promptInput now matches AskJohnPromptInputSchema
     const llmResponse = await askJohnPrompt(promptInput);
     const { output } = llmResponse;
 
@@ -170,8 +195,11 @@ const askJohnFlow = ai.defineFlow(
          let toolSummary = "I tried using my tools: ";
          toolCalls.forEach((call, index) => {
              toolSummary += `Called ${call.name}. `;
-             if(toolResults && toolResults[index]) {
-                 toolSummary += `Result: ${JSON.stringify(toolResults[index].response?.output?.results)}. `;
+             if(toolResults && toolResults[index] && toolResults[index].response) {
+                 const toolCallOutput = toolResults[index].response?.output as { results?: string };
+                 toolSummary += `Result: ${toolCallOutput?.results || "no specific result text"}. `;
+             } else {
+                toolSummary += `No result or error from tool. `;
              }
          });
          return { answer: `${toolSummary} However, I couldn't form a final answer based on that. Could you try rephrasing or asking something else?` };
