@@ -6,8 +6,7 @@ import FinancialInputsCard from '@/components/sections/FinancialInputsCard';
 import SummaryDisplay from '@/components/sections/SummaryDisplay';
 import ProjectionChart from '@/components/charts/ProjectionChart';
 import MonthlyBreakdownTable from '@/components/tables/MonthlyBreakdownTable';
-import AskJohnChat from '@/components/sections/AskJohnChat'; // Changed import
-// import type { FinancialOptimizationInput } from '@/ai/flows/financial-optimization-recommendations'; // No longer needed here
+import AskJohnChat from '@/components/sections/AskJohnChat';
 
 export interface ProjectionMonthData {
   month: string;
@@ -34,14 +33,14 @@ export interface SummaryMetrics {
 }
 
 export default function ACACalculatorPage() {
-  const [leadPurchaseType, setLeadPurchaseType] = useState('monthly');
+  const [leadPurchaseType, setLeadPurchaseType] = useState('oneTime');
   const [leadsPurchasedInput, setLeadsPurchasedInput] = useState<string | number>(100);
   const [leadCost, setLeadCost] = useState<string | number>(40);
   const [newToMarketplacePercentage, setNewToMarketplacePercentage] = useState<string | number>(35);
-  const [aorConversionType, setAorConversionType] = useState('monthly');
+  const [aorConversionType, setAorConversionType] = useState('oneTime');
   const [aorConversionsInput, setAorConversionsInput] = useState<string | number>(5);
   const [recurringCommission, setRecurringCommission] = useState<string | number>(20);
-  const [newEnrollmentCost, setNewEnrollmentCost] = useState<string | number>(2.50);
+  const [newEnrollmentCost, setNewEnrollmentCost] = useState<string | number>(0);
   const [showAssumptions, setShowAssumptions] = useState(false);
   const [projectionData, setProjectionData] = useState<ProjectionMonthData[]>([]);
   const [isCalculating, setIsCalculating] = useState(true);
@@ -212,7 +211,7 @@ export default function ACACalculatorPage() {
             />
           </div>
 
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-6 flex flex-col">
             <Card className="shadow-xl">
               <CardHeader>
                 <CardTitle className="text-2xl font-semibold text-foreground border-b pb-3">Yearly Summary</CardTitle>
@@ -221,7 +220,7 @@ export default function ACACalculatorPage() {
                 <SummaryDisplay summaryMetrics={summaryMetrics} />
               </CardContent>
             </Card>
-            <AskJohnChat /> {/* Replaced AiRecommendationsCard */}
+            <AskJohnChat className="flex-grow" />
           </div>
         </div>
         
@@ -247,6 +246,9 @@ export default function ACACalculatorPage() {
         <footer className="mt-12 py-8 text-center text-sm text-muted-foreground">
             <p>&copy; {new Date().getFullYear()} ACA Client Acquisition Calculator. All calculations are estimates.</p>
             <p>Assumes selected lead & AOR models, and no customer churn.</p>
+            <p className="mt-2">
+              Powered by <a href="https://agentemp.com/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">AgentEmp</a> and <a href="https://agentsly.ai/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Agentsly</a>
+            </p>
         </footer>
       </div>
     </div>

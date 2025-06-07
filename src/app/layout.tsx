@@ -5,6 +5,15 @@ import { Toaster } from "@/components/ui/toaster";
 export const metadata: Metadata = {
   title: 'ACA Client Acquisition Calculator',
   description: 'Commission & Revenue Projection Calculator by Firebase Studio',
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: '32x32', type: 'image/x-icon' },
+      { url: '/favicon.svg', sizes: 'any', type: 'image/svg+xml' },
+    ],
+    apple: [
+      { url: '/favicon.svg', sizes: '180x180', type: 'image/svg+xml' },
+    ],
+  },
 };
 
 export default function RootLayout({

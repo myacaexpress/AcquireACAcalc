@@ -18,7 +18,11 @@ interface Message {
   timestamp: Date;
 }
 
-const AskJohnChat: React.FC = () => {
+interface AskJohnChatProps {
+  className?: string;
+}
+
+const AskJohnChat: React.FC<AskJohnChatProps> = ({ className }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -26,9 +30,9 @@ const AskJohnChat: React.FC = () => {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const prePrompts = [
-    "Carrier bonuses from 2024",
+    "What does pmpm mean?",
     "What is SEP?",
-    "Do I need to wait till open enrollment?"
+    "Whats the difference between marketplace and non-marketplace"
   ];
 
   const scrollToBottom = () => {
@@ -95,7 +99,7 @@ const AskJohnChat: React.FC = () => {
   };
 
   return (
-    <Card className="shadow-xl w-full h-[600px] flex flex-col">
+    <Card className={`shadow-xl w-full flex flex-col ${className} max-h-[600px]`}>
       <CardHeader>
         <CardTitle className="text-2xl font-semibold text-foreground border-b pb-3 flex items-center">
           <Brain className="mr-2 h-6 w-6 text-primary" />

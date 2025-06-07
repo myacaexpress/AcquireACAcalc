@@ -1,0 +1,25 @@
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <!-- Outer blue circle -->
+  <circle cx="16" cy="16" r="15" fill="none" stroke="#3EAED7" stroke-width="2"/>
+  
+  <!-- Inner white background -->
+  <circle cx="16" cy="16" r="13" fill="white"/>
+  
+  <!-- Eagle head silhouette -->
+  <path d="M16 8c-1.5 0-2.8 0.8-3.5 2c-0.3 0.5-0.5 1.1-0.5 1.7c0 0.3 0.1 0.6 0.2 0.9c0.2 0.5 0.5 0.9 0.9 1.2c0.4 0.3 0.9 0.5 1.4 0.5h0.5c0.2 0 0.4-0.1 0.5-0.2c0.1-0.1 0.2-0.3 0.2-0.5s-0.1-0.4-0.2-0.5c-0.1-0.1-0.3-0.2-0.5-0.2h-0.5c-0.2 0-0.4-0.1-0.6-0.2c-0.2-0.1-0.3-0.3-0.4-0.5c-0.1-0.1-0.1-0.3-0.1-0.4c0-0.3 0.1-0.6 0.3-0.8c0.4-0.7 1.2-1.2 2.1-1.2s1.7 0.5 2.1 1.2c0.2 0.2 0.3 0.5 0.3 0.8c0 0.1 0 0.3-0.1 0.4c-0.1 0.2-0.2 0.4-0.4 0.5c-0.2 0.1-0.4 0.2-0.6 0.2h-0.5c-0.2 0-0.4 0.1-0.5 0.2c-0.1 0.1-0.2 0.3-0.2 0.5s0.1 0.4 0.2 0.5c0.1 0.1 0.3 0.2 0.5 0.2h0.5c0.5 0 1-0.2 1.4-0.5c0.4-0.3 0.7-0.7 0.9-1.2c0.1-0.3 0.2-0.6 0.2-0.9c0-0.6-0.2-1.2-0.5-1.7C18.8 8.8 17.5 8 16 8z" fill="#3EAED7"/>
+  
+  <!-- Red eye -->
+  <circle cx="17" cy="11" r="0.8" fill="#DC2626"/>
+  
+  <!-- Shield outline -->
+  <path d="M11 15h10l-1 8c0 1-4 2-4 2s-4-1-4-2l-1-8z" fill="none" stroke="#3EAED7" stroke-width="1.5"/>
+  
+  <!-- AFG letters -->
+  <text x="16" y="20" text-anchor="middle" font-family="Arial, sans-serif" font-size="4" font-weight="bold" fill="#3EAED7">A</text>
+  <text x="13.5" y="20" text-anchor="middle" font-family="Arial, sans-serif" font-size="3" font-weight="bold" fill="#DC2626">F</text>
+  <text x="18.5" y="20" text-anchor="middle" font-family="Arial, sans-serif" font-size="3" font-weight="bold" fill="#3EAED7">G</text>
+  
+  <!-- Company name text (smaller) -->
+  <text x="16" y="26" text-anchor="middle" font-family="Arial, sans-serif" font-size="1.5" fill="#3EAED7">AMERICHOICE</text>
+  <text x="16" y="28" text-anchor="middle" font-family="Arial, sans-serif" font-size="1.2" fill="#3EAED7">FINANCIAL GROUP</text>
+</svg>
