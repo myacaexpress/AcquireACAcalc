@@ -17,8 +17,6 @@ const PodcastWidget: React.FC<PodcastWidgetProps> = ({
   title = "ACA Enrollment Guidelines and Resources for 2025",
   className 
 }) => {
-  // Check if we're dealing with the large audio file
-  const isLargeFile = audioSrc.includes('aca-enrollment-guidelines-2025.wav');
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -195,45 +193,6 @@ const PodcastWidget: React.FC<PodcastWidgetProps> = ({
 
   const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
 
-  // If it's the large file, show alternative content
-  if (isLargeFile) {
-    return (
-      <Card className={`shadow-lg border-2 border-primary/20 ${className}`}>
-        <CardContent className="p-3">
-          <div className="flex flex-col space-y-3 text-center">
-            <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-              <p className="text-xs text-blue-700 dark:text-blue-300 mb-2">
-                📁 Audio file is too large for web streaming (85MB)
-              </p>
-              <p className="text-xs text-muted-foreground mb-3">
-                For the best experience, please download the audio file or access it via external platforms.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-2 justify-center">
-                <Button
-                  onClick={handleDownload}
-                  variant="default"
-                  size="sm"
-                  className="text-xs"
-                >
-                  <Download className="w-3 h-3 mr-1" />
-                  Download Audio (85MB)
-                </Button>
-                <Button
-                  onClick={() => window.open('https://example.com/podcast', '_blank')}
-                  variant="outline"
-                  size="sm"
-                  className="text-xs"
-                >
-                  Listen on Platform
-                </Button>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
     <Card className={`shadow-lg border-2 border-primary/20 ${className}`}>
