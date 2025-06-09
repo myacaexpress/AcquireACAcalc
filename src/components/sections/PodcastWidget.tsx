@@ -23,10 +23,15 @@ const PodcastWidget: React.FC<PodcastWidgetProps> = ({
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [showLargeFileWarning, setShowLargeFileWarning] = useState(false);
+
+  // Check if this is a large file that might have streaming issues
+  const isLargeFile = audioSrc.includes('firebasestorage.googleapis.com') && 
+                      (title.includes('85MB') || audioSrc.includes('ACA%20Enrollment'));
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -194,6 +199,45 @@ const PodcastWidget: React.FC<PodcastWidgetProps> = ({
 
   const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
 
+
+  // Show special UI for large files
+  if (isLargeFile) {
+    return (
+      <Card className={`shadow-lg border-2 border-primary/20 ${className}`}>
+        <CardContent className="p-4">
+          <div className="flex flex-col space-y-3 text-center">
+            <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <p className="text-xs text-amber-800 mb-2">
+                📁 Large Audio File (85MB)
+              </p>
+              <p className="text-xs text-amber-700 mb-3">
+                This file is too large for web streaming. Choose an option below:
+              </p>
+              <div className="flex flex-col space-y-2">
+                <Button
+                  onClick={handleDownload}
+                  className="w-full text-xs"
+                  size="sm"
+                >
+                  <Download className="w-3 h-3 mr-2" />
+                  Download Audio File (85MB)
+                </Button>
+                <Button
+                  onClick={() => window.open('https://example.com/podcast', '_blank')}
+                  variant="outline"
+                  className="w-full text-xs"
+                  size="sm"
+                >
+                  🎧 Listen on Podcast Platform
+                </Button>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className={`shadow-lg border-2 border-primary/20 ${className}`}>
