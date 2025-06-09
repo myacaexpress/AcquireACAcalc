@@ -191,7 +191,7 @@ export default function ACACalculatorPage() {
         {/* Podcast Widget */}
         <div className="mb-8">
           <PodcastWidget 
-            audioSrc="/ACA Enrollment_ Guidelines and Resources for 2025.wav"
+            audioSrc="/aca-enrollment-guidelines-2025.wav"
             className="max-w-2xl mx-auto"
           />
         </div>

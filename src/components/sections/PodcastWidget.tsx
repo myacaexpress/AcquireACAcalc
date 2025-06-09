@@ -25,14 +25,25 @@ const PodcastWidget: React.FC<PodcastWidgetProps> = ({
   const [isMuted, setIsMuted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [playbackRate, setPlaybackRate] = useState(1);
+  const [hasError, setHasError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
+    // Reset states when audioSrc changes
+    setHasError(false);
+    setErrorMessage('');
+    setIsLoading(true);
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+
     const handleLoadedMetadata = () => {
       setDuration(audio.duration);
       setIsLoading(false);
+      setHasError(false);
     };
 
     const handleTimeUpdate = () => {
@@ -46,19 +57,33 @@ const PodcastWidget: React.FC<PodcastWidgetProps> = ({
 
     const handleLoadStart = () => {
       setIsLoading(true);
+      setHasError(false);
     };
 
     const handleCanPlay = () => {
       setIsLoading(false);
+      setHasError(false);
     };
 
-    const handleError = () => {
-      console.error('Audio loading error');
+    const handleError = (e: Event) => {
+      console.error('Audio loading error:', e);
       setIsLoading(false);
+      setHasError(true);
+      setErrorMessage('Audio file could not be loaded. The file may be too large or unavailable.');
     };
 
     const handleLoadedData = () => {
       setIsLoading(false);
+      setHasError(false);
+    };
+
+    const handleStalled = () => {
+      console.warn('Audio loading stalled');
+      setErrorMessage('Audio loading is taking longer than expected...');
+    };
+
+    const handleSuspend = () => {
+      console.warn('Audio loading suspended');
     };
 
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
@@ -68,11 +93,23 @@ const PodcastWidget: React.FC<PodcastWidgetProps> = ({
     audio.addEventListener('canplay', handleCanPlay);
     audio.addEventListener('error', handleError);
     audio.addEventListener('loadeddata', handleLoadedData);
+    audio.addEventListener('stalled', handleStalled);
+    audio.addEventListener('suspend', handleSuspend);
+
+    // Set a timeout for loading
+    const loadTimeout = setTimeout(() => {
+      if (isLoading && !hasError) {
+        setHasError(true);
+        setIsLoading(false);
+        setErrorMessage('Audio loading timed out. The file may be too large or unavailable.');
+      }
+    }, 30000); // 30 second timeout
 
     // Force load the audio
     audio.load();
 
     return () => {
+      clearTimeout(loadTimeout);
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('ended', handleEnded);
@@ -80,6 +117,8 @@ const PodcastWidget: React.FC<PodcastWidgetProps> = ({
       audio.removeEventListener('canplay', handleCanPlay);
       audio.removeEventListener('error', handleError);
       audio.removeEventListener('loadeddata', handleLoadedData);
+      audio.removeEventListener('stalled', handleStalled);
+      audio.removeEventListener('suspend', handleSuspend);
     };
   }, [audioSrc]);
 
@@ -168,6 +207,9 @@ const PodcastWidget: React.FC<PodcastWidgetProps> = ({
           {/* Title Row */}
           <div className="text-center">
             <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+            {hasError && (
+              <p className="text-xs text-red-500 mt-1">{errorMessage}</p>
+            )}
           </div>
 
           {/* Progress Bar */}
@@ -192,7 +234,7 @@ const PodcastWidget: React.FC<PodcastWidgetProps> = ({
               {/* Play/Pause Button */}
               <Button
                 onClick={togglePlayPause}
-                disabled={isLoading}
+                disabled={isLoading || hasError}
                 size="sm"
                 className="rounded-full w-8 h-8"
               >
