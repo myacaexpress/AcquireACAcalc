@@ -7,6 +7,7 @@ import SummaryDisplay from '@/components/sections/SummaryDisplay';
 import ProjectionChart from '@/components/charts/ProjectionChart';
 import MonthlyBreakdownTable from '@/components/tables/MonthlyBreakdownTable';
 import AskJohnChat from '@/components/sections/AskJohnChat';
+import PodcastWidget from '@/components/sections/PodcastWidget';
 
 export interface ProjectionMonthData {
   month: string;
@@ -186,6 +187,14 @@ export default function ACACalculatorPage() {
           <h1 className="text-4xl font-bold text-primary font-headline">ACA Client Acquisition Calculator</h1>
           <p className="text-lg text-muted-foreground mt-2">Estimate your commission & revenue potential over 12 months.</p>
         </header>
+
+        {/* Podcast Widget */}
+        <div className="mb-8">
+          <PodcastWidget 
+            audioSrc="/ACA Enrollment_ Guidelines and Resources for 2025.wav"
+            className="max-w-2xl mx-auto"
+          />
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <div className="lg:col-span-1">
