@@ -191,7 +191,7 @@ export default function ACACalculatorPage() {
         {/* Podcast Widget */}
         <div className="mb-8">
           <PodcastWidget 
-            audioSrc="https://storage.googleapis.com/your-bucket-name/aca-enrollment-guidelines-2025.wav"
+            audioSrc="https://firebasestorage.googleapis.com/v0/b/aca-client-acq-calc.firebasestorage.app/o/ACA%20Enrollment_%20Guidelines%20and%20Resources%20for%202025.wav?alt=media&token=8a8c57ed-b3f7-44fc-8af9-dce520438c00"
             className="max-w-2xl mx-auto"
           />
         </div>
