@@ -96,20 +96,11 @@ const PodcastWidget: React.FC<PodcastWidgetProps> = ({
     audio.addEventListener('stalled', handleStalled);
     audio.addEventListener('suspend', handleSuspend);
 
-    // Set a timeout for loading
-    const loadTimeout = setTimeout(() => {
-      if (isLoading && !hasError) {
-        setHasError(true);
-        setIsLoading(false);
-        setErrorMessage('Audio loading timed out. The file may be too large or unavailable.');
-      }
-    }, 30000); // 30 second timeout
-
-    // Force load the audio
-    audio.load();
+    // Don't force load immediately for large files
+    // Only load when user tries to play
+    setIsLoading(false);
 
     return () => {
-      clearTimeout(loadTimeout);
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('ended', handleEnded);
@@ -122,16 +113,26 @@ const PodcastWidget: React.FC<PodcastWidgetProps> = ({
     };
   }, [audioSrc]);
 
-  const togglePlayPause = () => {
+  const togglePlayPause = async () => {
     const audio = audioRef.current;
     if (!audio) return;
 
     if (isPlaying) {
       audio.pause();
+      setIsPlaying(false);
     } else {
-      audio.play();
+      setIsLoading(true);
+      try {
+        await audio.play();
+        setIsPlaying(true);
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Error playing audio:', error);
+        setHasError(true);
+        setErrorMessage('Failed to play audio. The file may be too large or unavailable.');
+        setIsLoading(false);
+      }
     }
-    setIsPlaying(!isPlaying);
   };
 
   const handleProgressChange = (value: number[]) => {
@@ -198,7 +199,11 @@ const PodcastWidget: React.FC<PodcastWidgetProps> = ({
     <Card className={`shadow-lg border-2 border-primary/20 ${className}`}>
       <CardContent className="p-3">
         {/* Audio Element */}
-        <audio ref={audioRef} preload="metadata">
+        <audio 
+          ref={audioRef} 
+          preload="none"
+          crossOrigin="anonymous"
+        >
           <source src={audioSrc} type="audio/wav" />
           Your browser does not support the audio element.
         </audio>
