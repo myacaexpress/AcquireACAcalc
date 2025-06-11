@@ -8,6 +8,7 @@ import ProjectionChart from '@/components/charts/ProjectionChart';
 import MonthlyBreakdownTable from '@/components/tables/MonthlyBreakdownTable';
 import AskJohnChat from '@/components/sections/AskJohnChat';
 import PodcastWidget from '@/components/sections/PodcastWidget';
+import AcaPresentationSlides from '@/components/sections/AcaPresentationSlides';
 
 export interface ProjectionMonthData {
   month: string;
@@ -181,20 +182,20 @@ export default function ACACalculatorPage() {
   }, [projectionData]);
 
   return (
-    <div className="min-h-screen bg-background p-4 sm:p-6 md:p-8">
-      <div className="container mx-auto max-w-7xl">
-        <header className="mb-8 text-center py-8">
-          <h1 className="text-4xl font-bold text-primary font-headline">ACA Client Acquisition Calculator</h1>
-          <p className="text-lg text-muted-foreground mt-2">Estimate your commission & revenue potential over 12 months.</p>
-        </header>
+    <div className="min-h-screen bg-background">
+      {/* ACA Presentation Section */}
+      <section className="bg-background p-4 sm:p-6 md:p-8">
+        <AcaPresentationSlides />
+      </section>
 
-        {/* Podcast Widget */}
-        <div className="mb-8">
-          <PodcastWidget 
-            audioSrc="https://firebasestorage.googleapis.com/v0/b/aca-client-acq-calc.firebasestorage.app/o/ACA%20Enrollment_%20Guidelines%20and%20Resources%20for%202025.wav?alt=media&token=8a8c57ed-b3f7-44fc-8af9-dce520438c00"
-            className="max-w-2xl mx-auto"
-          />
-        </div>
+      {/* Calculator Section */}
+      <section id="calculator-section" className="bg-background p-4 sm:p-6 md:p-8">
+        <div className="container mx-auto max-w-7xl">
+          <header className="mb-8 text-center py-8">
+            <h1 className="text-4xl font-bold text-primary font-headline">ACA Client Acquisition Calculator</h1>
+            <p className="text-lg text-muted-foreground mt-2">Estimate your commission & revenue potential over 12 months.</p>
+          </header>
+
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <div className="lg:col-span-1">
@@ -251,6 +252,26 @@ export default function ACACalculatorPage() {
             <MonthlyBreakdownTable data={projectionData} />
           </CardContent>
         </Card>
+
+        {/* Podcast Widgets Section */}
+        <div className="mt-12 mb-8">
+          <div className="text-center mb-6">
+            <h2 className="text-2xl font-bold text-foreground mb-2">Featured Podcasts</h2>
+            <p className="text-muted-foreground">Listen to expert insights on ACA enrollment and sales strategies</p>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <PodcastWidget 
+              title="Unlocking ACA Sales and Marketing Success"
+              audioSrc="https://firebasestorage.googleapis.com/v0/b/aca-client-acq-calc.firebasestorage.app/o/Unlocking%20ACA%20Sales%20and%20Marketing%20Success.wav?alt=media&token=253b9334-1f84-4f9b-8283-754163abd2c6"
+              className="w-full"
+            />
+            <PodcastWidget 
+              title="ACA Enrollment Guidelines and Resources for 2025"
+              audioSrc="https://firebasestorage.googleapis.com/v0/b/aca-client-acq-calc.firebasestorage.app/o/ACA%20Enrollment_%20Guidelines%20and%20Resources%20for%202025.wav?alt=media&token=8a8c57ed-b3f7-44fc-8af9-dce520438c00"
+              className="w-full"
+            />
+          </div>
+        </div>
         
         <footer className="mt-12 py-8 text-center text-sm text-muted-foreground">
             <p>&copy; {new Date().getFullYear()} ACA Client Acquisition Calculator. All calculations are estimates.</p>
@@ -259,7 +280,8 @@ export default function ACACalculatorPage() {
               Powered by <a href="https://agentemp.com/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">AgentEmp</a> and <a href="https://agentsly.ai/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Agentsly</a>
             </p>
         </footer>
-      </div>
+        </div>
+      </section>
     </div>
   );
 }
