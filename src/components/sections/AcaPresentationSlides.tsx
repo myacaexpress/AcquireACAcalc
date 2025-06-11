@@ -136,6 +136,22 @@ That's a great question, and it tells me you're thinking like a smart consumer. 
         <p className="text-2xl text-primary font-semibold mt-2">Your In-Depth Guide to Dominating the Under-65 Health Market</p>
       </header>
 
+      {/* Ready to Calculate Banner */}
+      <div className="bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 py-8 mb-12">
+        <div className="container mx-auto max-w-3xl text-center">
+          <h2 className="text-3xl font-bold text-foreground mb-3">Ready to Calculate Your Potential?</h2>
+          <p className="text-lg text-muted-foreground">Use our interactive calculator below to model your ACA business projections</p>
+          <div className="mt-4">
+            <button 
+              onClick={() => document.getElementById('calculator-section')?.scrollIntoView({ behavior: 'smooth' })}
+              className="bg-primary text-primary-foreground px-6 py-2 rounded-lg font-semibold hover:bg-primary/90 transition-colors"
+            >
+              Jump to Calculator
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Slide 1: Title */}
       <Card className="mb-12 p-8 border-t-8 border-t-primary shadow-xl">
         <div className="text-lg font-bold text-muted-foreground mb-4">SLIDE 1 of 21: TITLE</div>

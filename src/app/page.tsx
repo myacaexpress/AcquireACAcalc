@@ -188,22 +188,6 @@ export default function ACACalculatorPage() {
         <AcaPresentationSlides />
       </section>
 
-      {/* Visual Separator */}
-      <div className="bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 py-12">
-        <div className="container mx-auto max-w-7xl text-center">
-          <h2 className="text-4xl font-bold text-foreground mb-4">Ready to Calculate Your Potential?</h2>
-          <p className="text-xl text-muted-foreground">Use our interactive calculator below to model your ACA business projections</p>
-          <div className="mt-6">
-            <button 
-              onClick={() => document.getElementById('calculator-section')?.scrollIntoView({ behavior: 'smooth' })}
-              className="bg-primary text-primary-foreground px-8 py-3 rounded-lg font-semibold hover:bg-primary/90 transition-colors"
-            >
-              Jump to Calculator
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* Calculator Section */}
       <section id="calculator-section" className="bg-background p-4 sm:p-6 md:p-8">
         <div className="container mx-auto max-w-7xl">
@@ -212,13 +196,6 @@ export default function ACACalculatorPage() {
             <p className="text-lg text-muted-foreground mt-2">Estimate your commission & revenue potential over 12 months.</p>
           </header>
 
-          {/* Podcast Widget */}
-          <div className="mb-8">
-            <PodcastWidget 
-              audioSrc="https://firebasestorage.googleapis.com/v0/b/aca-client-acq-calc.firebasestorage.app/o/ACA%20Enrollment_%20Guidelines%20and%20Resources%20for%202025.wav?alt=media&token=8a8c57ed-b3f7-44fc-8af9-dce520438c00"
-              className="max-w-2xl mx-auto"
-            />
-          </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <div className="lg:col-span-1">
@@ -275,6 +252,26 @@ export default function ACACalculatorPage() {
             <MonthlyBreakdownTable data={projectionData} />
           </CardContent>
         </Card>
+
+        {/* Podcast Widgets Section */}
+        <div className="mt-12 mb-8">
+          <div className="text-center mb-6">
+            <h2 className="text-2xl font-bold text-foreground mb-2">Featured Podcasts</h2>
+            <p className="text-muted-foreground">Listen to expert insights on ACA enrollment and sales strategies</p>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <PodcastWidget 
+              title="Unlocking ACA Sales and Marketing Success"
+              audioSrc="https://firebasestorage.googleapis.com/v0/b/aca-client-acq-calc.firebasestorage.app/o/Unlocking%20ACA%20Sales%20and%20Marketing%20Success.wav?alt=media&token=253b9334-1f84-4f9b-8283-754163abd2c6"
+              className="w-full"
+            />
+            <PodcastWidget 
+              title="ACA Enrollment Guidelines and Resources for 2025"
+              audioSrc="https://firebasestorage.googleapis.com/v0/b/aca-client-acq-calc.firebasestorage.app/o/ACA%20Enrollment_%20Guidelines%20and%20Resources%20for%202025.wav?alt=media&token=8a8c57ed-b3f7-44fc-8af9-dce520438c00"
+              className="w-full"
+            />
+          </div>
+        </div>
         
         <footer className="mt-12 py-8 text-center text-sm text-muted-foreground">
             <p>&copy; {new Date().getFullYear()} ACA Client Acquisition Calculator. All calculations are estimates.</p>
