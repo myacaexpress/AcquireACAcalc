@@ -8,6 +8,7 @@ import ProjectionChart from '@/components/charts/ProjectionChart';
 import MonthlyBreakdownTable from '@/components/tables/MonthlyBreakdownTable';
 import AskJohnChat from '@/components/sections/AskJohnChat';
 import PodcastWidget from '@/components/sections/PodcastWidget';
+import AcaPresentationSlides from '@/components/sections/AcaPresentationSlides';
 
 export interface ProjectionMonthData {
   month: string;
@@ -181,20 +182,43 @@ export default function ACACalculatorPage() {
   }, [projectionData]);
 
   return (
-    <div className="min-h-screen bg-background p-4 sm:p-6 md:p-8">
-      <div className="container mx-auto max-w-7xl">
-        <header className="mb-8 text-center py-8">
-          <h1 className="text-4xl font-bold text-primary font-headline">ACA Client Acquisition Calculator</h1>
-          <p className="text-lg text-muted-foreground mt-2">Estimate your commission & revenue potential over 12 months.</p>
-        </header>
+    <div className="min-h-screen bg-background">
+      {/* ACA Presentation Section */}
+      <section className="bg-background p-4 sm:p-6 md:p-8">
+        <AcaPresentationSlides />
+      </section>
 
-        {/* Podcast Widget */}
-        <div className="mb-8">
-          <PodcastWidget 
-            audioSrc="https://firebasestorage.googleapis.com/v0/b/aca-client-acq-calc.firebasestorage.app/o/ACA%20Enrollment_%20Guidelines%20and%20Resources%20for%202025.wav?alt=media&token=8a8c57ed-b3f7-44fc-8af9-dce520438c00"
-            className="max-w-2xl mx-auto"
-          />
+      {/* Visual Separator */}
+      <div className="bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 py-12">
+        <div className="container mx-auto max-w-7xl text-center">
+          <h2 className="text-4xl font-bold text-foreground mb-4">Ready to Calculate Your Potential?</h2>
+          <p className="text-xl text-muted-foreground">Use our interactive calculator below to model your ACA business projections</p>
+          <div className="mt-6">
+            <button 
+              onClick={() => document.getElementById('calculator-section')?.scrollIntoView({ behavior: 'smooth' })}
+              className="bg-primary text-primary-foreground px-8 py-3 rounded-lg font-semibold hover:bg-primary/90 transition-colors"
+            >
+              Jump to Calculator
+            </button>
+          </div>
         </div>
+      </div>
+
+      {/* Calculator Section */}
+      <section id="calculator-section" className="bg-background p-4 sm:p-6 md:p-8">
+        <div className="container mx-auto max-w-7xl">
+          <header className="mb-8 text-center py-8">
+            <h1 className="text-4xl font-bold text-primary font-headline">ACA Client Acquisition Calculator</h1>
+            <p className="text-lg text-muted-foreground mt-2">Estimate your commission & revenue potential over 12 months.</p>
+          </header>
+
+          {/* Podcast Widget */}
+          <div className="mb-8">
+            <PodcastWidget 
+              audioSrc="https://firebasestorage.googleapis.com/v0/b/aca-client-acq-calc.firebasestorage.app/o/ACA%20Enrollment_%20Guidelines%20and%20Resources%20for%202025.wav?alt=media&token=8a8c57ed-b3f7-44fc-8af9-dce520438c00"
+              className="max-w-2xl mx-auto"
+            />
+          </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <div className="lg:col-span-1">
@@ -259,7 +283,8 @@ export default function ACACalculatorPage() {
               Powered by <a href="https://agentemp.com/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">AgentEmp</a> and <a href="https://agentsly.ai/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Agentsly</a>
             </p>
         </footer>
-      </div>
+        </div>
+      </section>
     </div>
   );
 }
